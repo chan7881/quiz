@@ -91,6 +91,31 @@ console.log("\n[유형 전환 — 옛 값이 남으면 안 된다]");
   ok("9유형 전환 모두 무사", allOk);
 }
 
+// ── ★ 정답을 정할 방법이 화면에 있는가 ──────────────────────
+// 2026-08-26: '진실 또는 거짓'이 정답 지정 단추를 안 그려서 **저장이 아예 막혀** 있었다.
+// setKind 검사는 통과했다 — 자료 구조만 봤지 화면을 안 봤기 때문이다.
+// 정답이 필요한 유형은 반드시 e-ans 단추 또는 정답 입력칸을 내놓아야 한다.
+console.log("\n[정답 지정 수단이 화면에 있는가]");
+E.KINDS.filter(k => k.ans).forEach(k => {
+  const it = E.blank(); E.setKind(it, k.k); it.prompt = "시험";
+  if (Array.isArray(it.opts)) { it.opts[0] = "가"; it.opts[1] = "나"; }
+  const html = E.editHtml({ id:null, title:"t", items:[it], speed:false,
+                            mode:"nick", roster:[], cur:0 });
+  const hasBtn = html.indexOf('data-act="e-ans"') >= 0;
+  const hasBox = /id="e-ans-(t|v)"/.test(html);
+  ok(k.n + " 정답 지정 가능", hasBtn || hasBox,
+     { 단추: hasBtn, 입력칸: hasBox });
+});
+// 정답이 없는 유형은 반대로 정답 수단이 없어야 한다(있으면 혼란스럽다).
+E.KINDS.filter(k => !k.ans).forEach(k => {
+  const it = E.blank(); E.setKind(it, k.k); it.prompt = "시험";
+  if (Array.isArray(it.opts)) { it.opts[0] = "가"; it.opts[1] = "나"; }
+  const html = E.editHtml({ id:null, title:"t", items:[it], speed:false,
+                            mode:"nick", roster:[], cur:0 });
+  ok(k.n + " 정답 수단 없음",
+     html.indexOf('data-act="e-ans"') < 0 && !/id="e-ans-(t|v)"/.test(html));
+});
+
 // ── 검증 ─────────────────────────────────────────────────────
 console.log("\n[저장 전 검증]");
 function quiz(over) {

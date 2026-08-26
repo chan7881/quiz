@@ -159,7 +159,15 @@
   function optRows(it) {
     var d = def(it.kind), h = "";
     if (d.opts === "tf") {
-      h += '<p class="sub" style="margin:10px 0 0">보기는 참·거짓으로 고정돼요.</p>';
+      // ⚠️ 보기는 고정이지만 **정답은 골라야 한다.** 여기를 빠뜨려서
+      //    '진실 또는 거짓'은 저장 자체가 막혀 있었다(2026-08-26).
+      //    보기가 고정인 것과 정답이 정해진 것은 다른 이야기다.
+      h += '<label class="lbl">정답 — 둘 중 하나를 고르세요</label><div class="row">' +
+        ["참", "거짓"].map(function (x, i) {
+          return '<button class="btn small ' + (isPicked(it, i) ? "primary" : "ghost") +
+            '" type="button" data-act="e-ans" data-j="' + i + '">' +
+            esc(x) + (isPicked(it, i) ? " ✓" : "") + "</button>";
+        }).join("") + "</div>";
     } else if (d.opts === true) {
       h += '<label class="lbl">보기 (빈 칸은 무시돼요)</label>';
       for (var i = 0; i < 6; i++) {
@@ -255,8 +263,6 @@
 
       '<div class="card">' +
       '<div class="row"><span class="pill on">' + (q.cur + 1) + " / " + q.items.length + "</span>" +
-      '<button class="btn small ghost narrow" type="button" data-act="e-up">◀ 앞으로</button>' +
-      '<button class="btn small ghost narrow" type="button" data-act="e-down">뒤로 ▶</button>' +
       '<button class="btn small danger narrow" type="button" data-act="e-del">문항 삭제</button></div>' +
 
       '<label class="lbl" for="e-kind">유형</label><select id="e-kind">' +
@@ -287,14 +293,15 @@
       "</div>";
   }
 
-  function listHtml(list, resume) {
+  function listHtml(list, resume, showKey) {
     return (resume || "") +
       '<div class="card"><div class="row">' +
       '<button class="btn small ghost narrow" type="button" data-act="e-home">← 처음</button>' +
       '<button class="btn small primary narrow" type="button" data-act="e-new">+ 새 퀴즈</button>' +
       "</div>" +
       "<h1>내 퀴즈</h1>" +
-      '<p class="sub">이 브라우저에만 저장돼요. 다른 기기에서는 안 보입니다.</p>' +
+      '<p class="sub">퀴즈는 서버에 저장돼요. 다만 <b>이 브라우저</b>의 열쇠로만 열립니다 — ' +
+      "다른 기기에서 쓰려면 아래 «기기 옮기기»를 보세요.</p>" +
       (list && list.length
         ? '<div class="list">' + list.map(function (q) {
             return '<div class="item"><span class="grow">' +
@@ -307,7 +314,32 @@
               esc(q.id) + '">진행</button></div>';
           }).join("") + "</div>"
         : '<p class="sub" style="margin-top:14px">아직 만든 퀴즈가 없어요.</p>') +
-      '<p id="e-msg" class="msg"></p></div>';
+      '<p id="e-msg" class="msg"></p></div>' + keyHtml(showKey);
+  }
+
+  // ── 기기 옮기기 ─────────────────────────────────────────────
+  // 퀴즈는 서버에 있는데 '내 것'이라는 증명(열쇠)이 브라우저에만 있다.
+  // 그래서 열쇠를 옮길 수단이 없으면 교무실에서 만든 것을 교실에서 못 연다.
+  // ⚠️ 열쇠는 비밀번호나 마찬가지다. 화면에 띄우면 빔프로젝터로 나갈 수 있다.
+  function keyHtml(key) {
+    return '<div class="card"><h2>기기 옮기기</h2>' +
+      '<p class="sub">교무실에서 만든 퀴즈를 교실에서 열려면 <b>열쇠</b>를 옮기세요. ' +
+      "복사가 아니라 <b>같은 퀴즈</b>를 함께 보게 됩니다.</p>" +
+      (key
+        ? '<p class="msg bad">⚠ 화면 공유 중이면 끄고 보세요. 이 값이 곧 열쇠입니다.</p>' +
+          '<textarea id="e-key-out" readonly rows="2" ' +
+          'style="font-size:12px;word-break:break-all">' + esc(key) + "</textarea>" +
+          '<button class="btn small ghost" type="button" data-act="e-key-copy">복사</button> ' +
+          '<button class="btn small ghost" type="button" data-act="e-key-hide">숨기기</button>'
+        : '<button class="btn ghost" type="button" data-act="e-key-show">' +
+          "내 열쇠 보기 (이 기기 → 다른 기기)</button>") +
+      '<div class="hr"></div>' +
+      '<label class="lbl" for="e-key-in">다른 기기의 열쇠 붙여넣기</label>' +
+      '<input id="e-key-in" autocomplete="off" placeholder="64자 정도의 영문·숫자" />' +
+      '<button class="btn" type="button" data-act="e-key-use">이 기기에서 열기</button>' +
+      '<p class="sub" style="margin-top:10px">열쇠를 잃어버리면 만든 퀴즈를 다시 열 수 없어요. ' +
+      "브라우저 데이터를 지우기 전에 어딘가 적어 두세요.</p>" +
+      '<p id="e-key-msg" class="msg"></p></div>';
   }
 
   window.QZ_EDIT = {

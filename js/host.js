@@ -68,10 +68,13 @@
       '<button class="btn primary" type="button" data-act="e-resume">이어서 진행</button></div>';
   }
 
+  var showKey = false;              // 열쇠를 화면에 띄우고 있는가(기본은 감춤)
   function drawEdit() {
     var box = $("edit-box");
     if (!box) return;
-    box.innerHTML = st.quiz ? E.editHtml(st.quiz) : E.listHtml(st.list, resumeHtml());
+    box.innerHTML = st.quiz
+      ? E.editHtml(st.quiz)
+      : E.listHtml(st.list, resumeHtml(), showKey ? tok(false) : null);
   }
 
   // ── 편집 화면의 단추 ────────────────────────────────────────
@@ -87,6 +90,35 @@
       st.run = { session: resumeInfo.session, code: resumeInfo.code,
                  channel: resumeInfo.channel, phase: resumeInfo.phase };
       startRun();
+      return;
+    }
+
+    // ── 기기 옮기기 ──
+    if (a === "e-key-show") {
+      if (!tok(false)) { msg($("e-key-msg"), "아직 열쇠가 없어요. 퀴즈를 하나 저장하면 생깁니다."); return; }
+      showKey = true; drawEdit(); return;
+    }
+    if (a === "e-key-hide") { showKey = false; drawEdit(); return; }
+    if (a === "e-key-copy") {
+      var out = $("e-key-out");
+      if (!out) return;
+      out.select();
+      // navigator.clipboard 는 http 로 열면 없다(보안 컨텍스트가 아니라서).
+      // 그때는 옛 방식으로 물러선다.
+      var done = false;
+      try { if (navigator.clipboard) { navigator.clipboard.writeText(out.value); done = true; } } catch (e) {}
+      if (!done) { try { done = document.execCommand("copy"); } catch (e) {} }
+      msg($("e-key-msg"), done ? "복사했어요." : "복사가 안 돼요. 길게 눌러 직접 복사해 주세요.",
+          done ? "ok" : "bad");
+      return;
+    }
+    if (a === "e-key-use") {
+      var v = ($("e-key-in") || {}).value || "";
+      if (!S.setHostToken(v)) { msg($("e-key-msg"), "열쇠가 너무 짧아요. 통째로 붙여넣었는지 보세요."); return; }
+      showKey = false;
+      st.quiz = null; st.list = null;
+      msg($("e-key-msg"), "열쇠를 바꿨어요. 목록을 다시 불러옵니다.", "ok");
+      loadList(); checkResume();
       return;
     }
 
@@ -122,14 +154,6 @@
       E.sync(q); q.items.splice(q.cur, 1);
       q.cur = Math.max(0, Math.min(q.cur, q.items.length - 1));
       drawEdit(); return;
-    }
-
-    if (a === "e-up" || a === "e-down") {
-      E.sync(q);
-      var i = q.cur, j = a === "e-up" ? i - 1 : i + 1;
-      if (j < 0 || j >= q.items.length) return;
-      var tmp = q.items[i]; q.items[i] = q.items[j]; q.items[j] = tmp;
-      q.cur = j; drawEdit(); return;
     }
 
     if (a === "e-opt-add") {
@@ -405,9 +429,12 @@
     return '<div class="card"><h2>문항별</h2><div class="scroll-x"><table>' +
       "<tr><th>번호</th><th>문항</th><th class='n'>응답</th><th class='n'>정답</th></tr>" +
       (d.items || []).map(function (x) {
+        // ⚠️ 의견 수집 유형은 정답이 없다. 여기서 0 을 그대로 찍으면
+        //    '아무도 못 맞혔다'로 읽힌다 — 아예 해당 없음(—)으로 둔다.
+        var scored = !!(E.def(x.kind) || {}).ans;
         return "<tr><td>" + esc(x.ord) + "</td><td>" + esc(x.prompt || "") +
           "</td><td class='n'>" + esc(x.n) + "</td><td class='n'>" +
-          (x.ok == null ? "—" : esc(x.ok)) + "</td></tr>";
+          (scored && x.ok != null ? esc(x.ok) : "—") + "</td></tr>";
       }).join("") + "</table></div>" +
       "<h2 style='margin-top:18px'>학생별</h2><div class='scroll-x'><table>" +
       "<tr><th>번호</th><th>이름</th><th class='n'>맞힌 수</th><th class='n'>점수</th></tr>" +

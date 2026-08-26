@@ -66,6 +66,16 @@
     var t = hostToken(false);
     if (t) setItem("qz_host", JSON.stringify({ t: t, at: Date.now() }));
   }
+  // 다른 기기에서 만든 열쇠를 이 기기에 심는다.
+  // ⚠️ 퀴즈는 서버에 있고 이 열쇠가 '내 것'이라는 증명이다. 열쇠를 옮기면
+  //    두 기기가 **같은 퀴즈 목록**을 본다(복사가 아니라 같은 것을 본다).
+  //    서버가 32자 미만을 거절하므로 여기서도 같은 기준으로 막는다.
+  function setHostToken(t) {
+    t = String(t == null ? "" : t).trim();
+    if (t.length < 32) return false;
+    setItem("qz_host", JSON.stringify({ t: t, at: Date.now() }));
+    return true;
+  }
 
   // ── 서버 호출 ───────────────────────────────────────────────
   function rpc(fn, args) {
@@ -116,7 +126,7 @@
   // ── 실시간 소켓 ─────────────────────────────────────────────
   // onSignal 은 "서버에 다시 물어보라"는 뜻이다. 페이로드는 안 넘긴다 — 일부러다.
   function makeSock(channel, onSignal) {
-    var sock = null, hb = null, ref = 0, retried = false, dead = false;
+    var sock = null, hb = null, ref = 0, retried = false, dead = false, wantPing = false;
 
     function drop() {
       if (hb) { clearInterval(hb); hb = null; }
@@ -148,6 +158,9 @@
                                        payload: {}, ref: String(++ref) }));
           }
         }, 25000);
+        // 붙자마자 한 번 알리기로 예약돼 있으면 여기서 보낸다.
+        // 소켓이 열리기 전에 ping() 을 부르면 그냥 사라지므로 이 자리가 필요하다.
+        if (wantPing) { wantPing = false; api.ping(); }
       };
 
       ws.onmessage = function (ev) {
@@ -167,10 +180,8 @@
       };
     }
 
-    connect();
-
-    return {
-      // 참여자에게 "다시 물어보라"만 보낸다. 내용은 안 싣는다.
+    var api = {
+      // 상대에게 "다시 물어보라"만 보낸다. 내용은 안 싣는다.
       ping: function () {
         if (sock && sock.readyState === 1) {
           sock.send(JSON.stringify({
@@ -179,9 +190,16 @@
           }));
         }
       },
+      // 소켓이 열리는 대로 한 번 알린다.
+      // 학생이 참여했을 때 쓴다 — 안 쓰면 교사 로비가 폴링(최대 5초)을 기다려야 하고,
+      // 교사가 다른 탭을 보고 있으면 그 폴링마저 쉬어서 '안 들어왔네?' 가 된다.
+      pingSoon: function () { if (sock && sock.readyState === 1) api.ping(); else wantPing = true; },
       wake: function () { retried = false; if (!sock || sock.readyState > 1) connect(); },
       close: function () { dead = true; drop(); },
     };
+
+    connect();
+    return api;
   }
 
   // ── 백업 폴링 ───────────────────────────────────────────────
@@ -196,6 +214,7 @@
     $: $, esc: esc, rpc: rpc, show: show, msg: msg, uuid: uuid,
     getItem: getItem, setItem: setItem, delItem: delItem,
     guestKey: guestKey, hostToken: hostToken, touchToken: touchToken,
+    setHostToken: setHostToken,
     makeSock: makeSock, makePoll: makePoll,
   };
 })();

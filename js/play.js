@@ -115,6 +115,7 @@
         draw();
         pull();
         sock = S.makeSock(d.channel, pull);
+        sock.pingSoon();               // 교사 로비가 바로 나를 보게 한다
         poll = S.makePoll(function () {
           if (st.run && st.run.phase !== "done") pull();
         }, 5000);
