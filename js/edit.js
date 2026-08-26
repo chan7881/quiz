@@ -324,13 +324,19 @@
   // ⚠️ 처음에는 64자 무작위 열쇠를 그대로 복사하게 했는데, 폰으로 옮기는 게
   //    현실적이지 않았다(사용자 지적). **외우는 문구**를 받아 그 해시를 열쇠로 쓴다.
   //    같은 문구를 넣으면 어느 기기에서든 같은 목록이 열린다.
+  // ⚠️ 이 칸 하나가 **두 가지 일**을 한다 — 처음 정하기, 다른 기기에서 불러오기.
+  //    실제로는 같은 동작(문구 → 열쇠)인데, 화면이 그걸 말해 주지 않으면
+  //    다른 기기에서 «불러오기 단추가 어디 있지?» 가 된다(사용자 지적, 2026-08-26).
+  //    그래서 두 경우를 **둘 다 글로 적어 둔다.**
   function keyHtml(hasKey, byPhrase) {
-    return '<div class="card"><h2>기기 옮기기</h2>' +
-      '<p class="sub">교무실에서 만든 퀴즈를 교실 PC·폰에서도 열려면 ' +
-      "<b>열쇠 문구</b>를 정하세요. 다른 기기에서 <b>같은 문구</b>를 넣으면 " +
-      "같은 퀴즈 목록이 열립니다.</p>" +
+    return '<div class="card"><h2>열쇠 문구 — 다른 기기에서 이어 쓰기</h2>' +
+      '<p class="sub">아래에 문구를 넣고 단추를 누르면 됩니다. 두 경우 모두 같은 자리예요.</p>' +
+      '<ul class="sub" style="margin:-6px 0 12px 18px">' +
+      "<li><b>처음이라면</b> — 문구를 지어 넣으세요. 이 기기의 열쇠가 됩니다.</li>" +
+      "<li><b>다른 기기에서 쓰던 문구라면</b> — 그대로 넣으세요. " +
+      "<b>그 퀴즈들이 목록에 나타납니다.</b></li></ul>" +
       '<p class="sub" style="margin-top:-6px">지금 이 기기: <b>' +
-      (byPhrase ? "문구로 정한 열쇠" : hasKey ? "자동으로 만들어진 열쇠" : "아직 없음") +
+      (byPhrase ? "문구로 정한 열쇠" : hasKey ? "자동으로 만들어진 열쇠 (문구 없음)" : "아직 없음") +
       "</b></p>" +
       '<label class="lbl" for="e-key-in">열쇠 문구</label>' +
       '<input id="e-key-in" autocomplete="off" ' +
@@ -338,11 +344,12 @@
       (hasKey
         ? '<label class="lbl" style="display:flex;gap:8px;align-items:center">' +
           '<input id="e-key-move" type="checkbox" checked style="width:auto;min-height:0" /> ' +
-          "지금 이 기기에 있는 퀴즈도 함께 옮기기</label>"
+          "지금 이 기기에 있는 퀴즈도 그 문구로 함께 옮기기</label>"
         : "") +
-      '<button class="btn primary" type="button" data-act="e-key-use">이 문구로 정하기</button>' +
+      '<button class="btn primary" type="button" data-act="e-key-use">' +
+      "이 문구로 내 퀴즈 열기</button>" +
       '<p class="sub" style="margin-top:12px">⚠ 문구를 아는 사람은 내 퀴즈를 열고 고칠 수 ' +
-      "있어요. <b>이름·학교·연도를 섞어</b> 길게 지으세요. " +
+      "있어요. <b>이름·학교·연도를 섞어</b> 길게 지으세요(8자 이상). " +
       "문구를 잊으면 만든 퀴즈를 다시 열 수 없습니다.</p>" +
       '<p id="e-key-msg" class="msg"></p></div>';
   }

@@ -41,10 +41,12 @@
     checkResume();
   }
 
+  // 알림을 목록 갱신 **뒤에** 띄우려면 순서를 알아야 하므로 약속(Promise)을 돌려준다.
+  // drawEdit() 이 카드를 다시 그리면서 알림 자리를 지우기 때문이다.
   function loadList() {
     var t = tok(false);
-    if (!t) { st.list = []; drawEdit(); return; }
-    rpc("qz_list", { p_token: t })
+    if (!t) { st.list = []; drawEdit(); return Promise.resolve(); }
+    return rpc("qz_list", { p_token: t })
       .then(function (d) { st.list = d || []; drawEdit(); })
       .catch(function (e) { st.list = []; drawEdit(); msg($("e-msg"), errText(e)); });
   }
@@ -54,8 +56,8 @@
   var resumeInfo = null;
   function checkResume() {
     var t = tok(false);
-    if (!t) return;
-    rpc("qz_resume", { p_token: t }).then(function (d) {
+    if (!t) { resumeInfo = null; return Promise.resolve(); }
+    return rpc("qz_resume", { p_token: t }).then(function (d) {
       resumeInfo = (d && d.open) ? d : null;
       drawEdit();
     }).catch(function () { resumeInfo = null; });
@@ -112,11 +114,15 @@
           S.setHostToken(nt);
           S.setItem("qz_host_phrase", "1");
           st.quiz = null; st.list = null;
-          drawEdit();
-          msg($("e-key-msg"),
-              "이 문구로 정했어요." + (d && d.moved ? " 퀴즈 " + d.moved + "개를 옮겼어요." : "") +
-              " 다른 기기에서도 같은 문구를 넣으세요.", "ok");
-          loadList(); checkResume();
+          // 목록·이어하기를 먼저 갱신하고 **마지막에** 알린다 — 중간에 다시 그리면 알림이 지워진다.
+          return loadList().then(checkResume).then(function () {
+            var n = (st.list || []).length;
+            msg($("e-key-msg"),
+                "이 문구를 이 기기의 열쇠로 정했어요. " +
+                (d && d.moved ? "이 기기에 있던 퀴즈 " + d.moved + "개를 옮겼고, " : "") +
+                (n ? "지금 목록에 퀴즈 " + n + "개가 보여요."
+                   : "이 문구로 저장된 퀴즈는 아직 없어요."), "ok");
+          });
         });
       }).catch(function (e) {
         // ⚠️ qz_reown 이 서버에 없으면 **열쇠를 바꾸지 않고 멈춘다.**
