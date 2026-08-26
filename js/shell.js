@@ -72,13 +72,18 @@
     if (!CFG.url || String(CFG.url).indexOf("PASTE_") === 0) {
       return Promise.reject(new Error("config.js 를 아직 안 채웠어요. README 3단계를 보세요."));
     }
+    // ⚠️ 키가 두 종류다.
+    //   · 옛 anon 키 — JWT 라 "eyJ" 로 시작한다. apikey + Authorization 둘 다 보낸다.
+    //   · 새 publishable 키 — "sb_publishable_…" 로 JWT 가 아니다.
+    //     이걸 Authorization: Bearer 로 보내면 **JWT 가 아니라며 거절당한다.**
+    //     그래서 JWT 일 때만 Authorization 을 붙인다. 두 키 모두에서 돌아간다.
+    var head = { "Content-Type": "application/json", apikey: CFG.anonKey };
+    if (/^eyJ/.test(String(CFG.anonKey || ""))) {
+      head.Authorization = "Bearer " + CFG.anonKey;
+    }
     return fetch(CFG.url + "/rest/v1/rpc/" + fn, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: CFG.anonKey,
-        Authorization: "Bearer " + CFG.anonKey,
-      },
+      headers: head,
       body: JSON.stringify(args || {}),
     }).then(function (r) {
       return r.text().then(function (t) {

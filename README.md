@@ -27,24 +27,87 @@
 
 ## 2. SQL 실행
 
-1. 왼쪽 메뉴 **SQL Editor** → **New query**
-2. `sql/schema.sql` 을 **통째로** 복사해 붙여넣고 **Run** (Ctrl+Enter)
-3. `Success. No rows returned` 이 나오면 된 겁니다.
+### 2-1. SQL 내용을 손에 넣기
 
-> 다시 실행해도 안전합니다(전부 `create or replace` / `if not exists`).
-> 고칠 일이 생기면 파일을 고쳐서 통째로 다시 Run 하면 됩니다.
+PC 앞이 아니어도 됩니다. 폰에서 이 주소를 열고 **복사 아이콘**을 누르면 전체가 복사됩니다.
+
+<https://github.com/chan7881/quiz/blob/main/sql/schema.sql>
+
+> 원본 텍스트만 보려면 → <https://raw.githubusercontent.com/chan7881/quiz/main/sql/schema.sql>
+> (27,000자 정도 됩니다. 중간이 잘리지 않았는지는 2-4에서 확인합니다.)
+
+### 2-2. 편집기 열기
+
+1. 왼쪽 메뉴에서 **SQL Editor** (`>_` 모양 아이콘)
+2. 검색창 옆 **`+`** → **Create a new snippet**
+
+> ⚠️ **`Create a new logs query` 가 아닙니다.** 그건 서버 로그를 뒤지는 전용 편집기라
+> 우리 SQL이 안 돌아갑니다. `Create a new folder` 는 그냥 정리용 폴더입니다.
+> **snippet = 보통의 SQL 질의**입니다.
+
+### 2-3. 붙여넣고 실행
+
+1. 빈 편집기를 한 번 클릭해 커서를 넣습니다
+2. **Ctrl+A** 로 전체 선택 (안에 뭐가 있든 지우려는 것 — 비어 있어도 해가 없습니다)
+3. **Ctrl+V** 로 붙여넣기
+4. **Ctrl+Enter** (또는 오른쪽 아래 **Run** 단추)
+
+경고창이 뜰 수 있습니다 — `alter table` · `revoke` 가 들어 있어서 Supabase 가
+"되돌릴 수 없는 작업일 수 있다"고 묻는 것입니다. **새 프로젝트라 지울 것이 없으니
+그대로 진행하면 됩니다.**
+
+### 2-4. 됐는지 확인
+
+아래가 나오면 성공입니다.
+
+```
+Success. No rows returned
+```
+
+눈으로 한 번 더 보려면:
+
+- 왼쪽 **Database → Tables** — `qz_quizzes` · `qz_sessions` · `qz_players` · `qz_answers`
+  **네 개**가 보여야 합니다
+- 왼쪽 **Database → Functions** — `qz_` 로 시작하는 함수가 **20개**
+
+### 2-5. 오류가 나면
+
+| 메시지 | 뜻 | 할 일 |
+|---|---|---|
+| `syntax error at or near ...` | 붙여넣기가 중간에 잘렸을 가능성이 큽니다 | 편집기 맨 끝이 `-- 이 설계는 DB 에서 broadcast 를…` 로 끝나는지 확인하고, 아니면 다시 복사해 붙여넣기 |
+| `permission denied` | 드문 경우 | 메시지를 그대로 알려 주세요 |
+| 그 외 | — | 메시지를 **그대로** 알려 주세요 |
+
+> **다시 실행해도 안전합니다.** 전부 `create or replace` / `if not exists` 라
+> 몇 번을 돌려도 같은 상태가 됩니다. 중간에 실패했으면 고친 뒤 **통째로 다시** Run 하세요.
+> 부분만 다시 돌릴 필요가 없습니다.
 
 ## 3. 열쇠 두 개를 `config.js` 에 넣기
 
-1. 왼쪽 메뉴 **Settings**(톱니) → **API**
-2. 두 값을 복사합니다.
-   - **Project URL** → `url`
-   - **Project API keys** 의 **`anon` `public`** → `anonKey`
-3. `config.js` 를 열어 `PASTE_...` 자리에 붙여넣습니다.
+왼쪽 메뉴 **Settings**(톱니) → **API Keys** (또는 위쪽 **Connect** 단추).
 
-> ⚠️ **`service_role` 키는 절대 넣지 마세요.** 그 키는 모든 테이블을 통째로 엽니다.
-> `anon` 키가 브라우저에 보이는 것은 정상입니다 — 이 키로는 테이블을 못 만지고,
-> `schema.sql` 이 열어 둔 함수 15개만 부를 수 있습니다.
+**① Project URL** → `config.js` 의 `url`
+`https://<영문 20자>.supabase.co` 모양입니다.
+
+**② 공개 키** → `config.js` 의 `anonKey`
+Supabase 가 키 체계를 바꾸는 중이라 **화면에 둘 중 하나가 보입니다. 어느 쪽이든 됩니다.**
+
+| 보이는 것 | 생김새 | 비고 |
+|---|---|---|
+| `anon` `public` (구) | `eyJhbGci…` | 2026년 말까지만 |
+| `Publishable key` (신) | `sb_publishable_…` | 앞으로 쓸 것 |
+
+> 코드가 둘 다 받게 돼 있습니다. 새 키는 JWT 가 아니라서 `Authorization: Bearer` 로
+> 보내면 거절되는데, `js/shell.js` 가 **키가 JWT 일 때만** 그 헤더를 붙입니다.
+
+**③ 넣기** — `config.js` 를 열어 `PASTE_PROJECT_URL` · `PASTE_ANON_KEY` 자리에 붙여넣습니다.
+
+> ⚠️ **`service_role` 키와 `sb_secret_…` 키는 절대 넣지 마세요.** 그 키는 모든 테이블을
+> 통째로 엽니다. 화면에서 **Reveal** 을 눌러야 보이는 것은 전부 비밀 키라고 생각하세요.
+>
+> 공개 키가 브라우저에 보이는 것은 **정상입니다** — 이 키로는 테이블을 못 만지고,
+> `schema.sql` 이 열어 둔 함수 15개만 부를 수 있습니다. 이 리포가 공개라서
+> 키가 인터넷에 노출되지만 설계상 문제가 없습니다.
 
 ## 4. 띄우기
 
