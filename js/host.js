@@ -68,13 +68,13 @@
       '<button class="btn primary" type="button" data-act="e-resume">이어서 진행</button></div>';
   }
 
-  var showKey = false;              // 열쇠를 화면에 띄우고 있는가(기본은 감춤)
   function drawEdit() {
     var box = $("edit-box");
     if (!box) return;
-    box.innerHTML = st.quiz
-      ? E.editHtml(st.quiz)
-      : E.listHtml(st.list, resumeHtml(), showKey ? tok(false) : null);
+    // 열쇠 상태: 없음(false) · 자동(true) · 문구로 정함("phrase")
+    var state = tok(false) ? (S.getItem("qz_host_phrase") ? "phrase" : true) : false;
+    box.innerHTML = st.quiz ? E.editHtml(st.quiz)
+                            : E.listHtml(st.list, resumeHtml(), state);
   }
 
   // ── 편집 화면의 단추 ────────────────────────────────────────
@@ -94,31 +94,41 @@
     }
 
     // ── 기기 옮기기 ──
-    if (a === "e-key-show") {
-      if (!tok(false)) { msg($("e-key-msg"), "아직 열쇠가 없어요. 퀴즈를 하나 저장하면 생깁니다."); return; }
-      showKey = true; drawEdit(); return;
-    }
-    if (a === "e-key-hide") { showKey = false; drawEdit(); return; }
-    if (a === "e-key-copy") {
-      var out = $("e-key-out");
-      if (!out) return;
-      out.select();
-      // navigator.clipboard 는 http 로 열면 없다(보안 컨텍스트가 아니라서).
-      // 그때는 옛 방식으로 물러선다.
-      var done = false;
-      try { if (navigator.clipboard) { navigator.clipboard.writeText(out.value); done = true; } } catch (e) {}
-      if (!done) { try { done = document.execCommand("copy"); } catch (e) {} }
-      msg($("e-key-msg"), done ? "복사했어요." : "복사가 안 돼요. 길게 눌러 직접 복사해 주세요.",
-          done ? "ok" : "bad");
-      return;
-    }
     if (a === "e-key-use") {
-      var v = ($("e-key-in") || {}).value || "";
-      if (!S.setHostToken(v)) { msg($("e-key-msg"), "열쇠가 너무 짧아요. 통째로 붙여넣었는지 보세요."); return; }
-      showKey = false;
-      st.quiz = null; st.list = null;
-      msg($("e-key-msg"), "열쇠를 바꿨어요. 목록을 다시 불러옵니다.", "ok");
-      loadList(); checkResume();
+      var phrase = ($("e-key-in") || {}).value || "";
+      var move = !!(($("e-key-move") || {}).checked);
+      var old = tok(false);
+      t.disabled = true;
+      S.tokenFromPhrase(phrase).then(function (nt) {
+        if (nt === old) {
+          msg($("e-key-msg"), "이미 그 문구로 되어 있어요.", "ok");
+          t.disabled = false; return;
+        }
+        // 열쇠를 바꾸기 **전에** 옮긴다. 먼저 바꾸면 옛 열쇠를 잃어버린다.
+        var step = (move && old)
+          ? rpc("qz_reown", { p_old: old, p_new: nt })
+          : Promise.resolve({ moved: 0 });
+        return step.then(function (d) {
+          S.setHostToken(nt);
+          S.setItem("qz_host_phrase", "1");
+          st.quiz = null; st.list = null;
+          drawEdit();
+          msg($("e-key-msg"),
+              "이 문구로 정했어요." + (d && d.moved ? " 퀴즈 " + d.moved + "개를 옮겼어요." : "") +
+              " 다른 기기에서도 같은 문구를 넣으세요.", "ok");
+          loadList(); checkResume();
+        });
+      }).catch(function (e) {
+        // ⚠️ qz_reown 이 서버에 없으면 **열쇠를 바꾸지 않고 멈춘다.**
+        //    그냥 바꾸면 기존 퀴즈를 못 여는 상태가 되어 더 나쁘다.
+        var m = (e && e.message) || "";
+        if (m.indexOf("qz_reown") >= 0 || (e && (e.code === "PGRST202" || e.code === "PGRST203"))) {
+          m = "서버에 «기기 옮기기» 기능이 아직 없어요. sql/schema.sql 을 다시 한 번 " +
+              "실행해 주세요(여러 번 실행해도 안전합니다). 열쇠는 그대로 두었어요.";
+        }
+        msg($("e-key-msg"), m || "열쇠를 바꾸지 못했어요.");
+        t.disabled = false;
+      });
       return;
     }
 
@@ -306,6 +316,25 @@
       "</div></div>";
   }
 
+  // 학생이 들어올 주소. 코드가 붙어 있어 찍으면 코드를 칠 필요가 없다.
+  function joinUrl(code) {
+    var path = location.pathname.replace(/index\.html$/i, "");
+    return location.origin + path + "?c=" + encodeURIComponent(code);
+  }
+
+  // ⚠️ 학교 와이파이를 믿지 않는다 — QR 은 바깥 라이브러리 없이 js/qr.js 가 그린다.
+  //    혹시 그리다 실패해도 코드는 아래에 크게 남으므로 수업은 굴러간다.
+  function qrHtml(code) {
+    if (!window.QZ_QR) return "";
+    try {
+      return '<div class="qr">' + window.QZ_QR.svg(joinUrl(code)) + "</div>" +
+             '<p class="sub" style="margin:8px 0 0;word-break:break-all">' +
+             esc(joinUrl(code)) + "</p>";
+    } catch (e) {
+      return "";
+    }
+  }
+
   function promptHtml(it) {
     var link = E.safeLink(it && it.media);
     var m = link && link.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/i);
@@ -365,7 +394,8 @@
     // ── 대기 ──
     if (r.phase === "lobby") {
       return '<div class="card big">' +
-        '<p class="sub">학생들에게 이 코드를 알려 주세요</p>' +
+        '<p class="sub">폰 카메라로 찍거나, 코드를 넣어 들어오세요</p>' +
+        qrHtml(r.code) +
         '<div class="code">' + esc(r.code) + "</div>" +
         '<p class="sub" style="margin-top:14px">들어온 사람 <b>' + esc(r.players_n || 0) + "</b>명</p>" +
         (r.players && r.players.length

@@ -577,6 +577,19 @@ begin
   return jsonb_build_object('ok', true);
 end $fn$;
 
+-- 열쇠를 바꿀 때 내 퀴즈를 함께 옮긴다.
+-- 옛 열쇠를 아는 사람은 이미 그 퀴즈의 주인이므로 새로 열리는 권한은 없다.
+create or replace function qz_reown(p_old text, p_new text)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare o text := qz_tok(p_old); n text := qz_tok(p_new); c int;
+begin
+  if o = n then return jsonb_build_object('moved', 0); end if;
+  update qz_quizzes set owner_token = n where owner_token = o;
+  get diagnostics c = row_count;
+  update qz_sessions set host_token = n where host_token = o and ended_at is null;
+  return jsonb_build_object('moved', c);
+end $fn$;
+
 -- ============================================================
 --  권한 — 여기 없는 것은 브라우저가 못 부른다
 -- ============================================================
@@ -598,7 +611,8 @@ grant execute on function
   qz_host_state(uuid, text),
   qz_resume(text),
   qz_report(uuid, text),
-  qz_end(uuid, text)
+  qz_end(uuid, text),
+  qz_reown(text, text)
 to anon;
 
 -- 끝. Supabase > Database > Realtime 에서 Broadcast 는 기본 켜져 있다.

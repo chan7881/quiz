@@ -314,31 +314,36 @@
               esc(q.id) + '">진행</button></div>';
           }).join("") + "</div>"
         : '<p class="sub" style="margin-top:14px">아직 만든 퀴즈가 없어요.</p>') +
-      '<p id="e-msg" class="msg"></p></div>' + keyHtml(showKey);
+      '<p id="e-msg" class="msg"></p></div>' + keyHtml(!!showKey, showKey === "phrase");
   }
 
   // ── 기기 옮기기 ─────────────────────────────────────────────
   // 퀴즈는 서버에 있는데 '내 것'이라는 증명(열쇠)이 브라우저에만 있다.
-  // 그래서 열쇠를 옮길 수단이 없으면 교무실에서 만든 것을 교실에서 못 연다.
-  // ⚠️ 열쇠는 비밀번호나 마찬가지다. 화면에 띄우면 빔프로젝터로 나갈 수 있다.
-  function keyHtml(key) {
+  // 옮길 수단이 없으면 교무실에서 만든 것을 교실에서 못 연다.
+  //
+  // ⚠️ 처음에는 64자 무작위 열쇠를 그대로 복사하게 했는데, 폰으로 옮기는 게
+  //    현실적이지 않았다(사용자 지적). **외우는 문구**를 받아 그 해시를 열쇠로 쓴다.
+  //    같은 문구를 넣으면 어느 기기에서든 같은 목록이 열린다.
+  function keyHtml(hasKey, byPhrase) {
     return '<div class="card"><h2>기기 옮기기</h2>' +
-      '<p class="sub">교무실에서 만든 퀴즈를 교실에서 열려면 <b>열쇠</b>를 옮기세요. ' +
-      "복사가 아니라 <b>같은 퀴즈</b>를 함께 보게 됩니다.</p>" +
-      (key
-        ? '<p class="msg bad">⚠ 화면 공유 중이면 끄고 보세요. 이 값이 곧 열쇠입니다.</p>' +
-          '<textarea id="e-key-out" readonly rows="2" ' +
-          'style="font-size:12px;word-break:break-all">' + esc(key) + "</textarea>" +
-          '<button class="btn small ghost" type="button" data-act="e-key-copy">복사</button> ' +
-          '<button class="btn small ghost" type="button" data-act="e-key-hide">숨기기</button>'
-        : '<button class="btn ghost" type="button" data-act="e-key-show">' +
-          "내 열쇠 보기 (이 기기 → 다른 기기)</button>") +
-      '<div class="hr"></div>' +
-      '<label class="lbl" for="e-key-in">다른 기기의 열쇠 붙여넣기</label>' +
-      '<input id="e-key-in" autocomplete="off" placeholder="64자 정도의 영문·숫자" />' +
-      '<button class="btn" type="button" data-act="e-key-use">이 기기에서 열기</button>' +
-      '<p class="sub" style="margin-top:10px">열쇠를 잃어버리면 만든 퀴즈를 다시 열 수 없어요. ' +
-      "브라우저 데이터를 지우기 전에 어딘가 적어 두세요.</p>" +
+      '<p class="sub">교무실에서 만든 퀴즈를 교실 PC·폰에서도 열려면 ' +
+      "<b>열쇠 문구</b>를 정하세요. 다른 기기에서 <b>같은 문구</b>를 넣으면 " +
+      "같은 퀴즈 목록이 열립니다.</p>" +
+      '<p class="sub" style="margin-top:-6px">지금 이 기기: <b>' +
+      (byPhrase ? "문구로 정한 열쇠" : hasKey ? "자동으로 만들어진 열쇠" : "아직 없음") +
+      "</b></p>" +
+      '<label class="lbl" for="e-key-in">열쇠 문구</label>' +
+      '<input id="e-key-in" autocomplete="off" ' +
+      'placeholder="예) 영동고 이웅찬 과학 2026" />' +
+      (hasKey
+        ? '<label class="lbl" style="display:flex;gap:8px;align-items:center">' +
+          '<input id="e-key-move" type="checkbox" checked style="width:auto;min-height:0" /> ' +
+          "지금 이 기기에 있는 퀴즈도 함께 옮기기</label>"
+        : "") +
+      '<button class="btn primary" type="button" data-act="e-key-use">이 문구로 정하기</button>' +
+      '<p class="sub" style="margin-top:12px">⚠ 문구를 아는 사람은 내 퀴즈를 열고 고칠 수 ' +
+      "있어요. <b>이름·학교·연도를 섞어</b> 길게 지으세요. " +
+      "문구를 잊으면 만든 퀴즈를 다시 열 수 없습니다.</p>" +
       '<p id="e-key-msg" class="msg"></p></div>';
   }
 

@@ -66,6 +66,29 @@
     var t = hostToken(false);
     if (t) setItem("qz_host", JSON.stringify({ t: t, at: Date.now() }));
   }
+  // ── 열쇠 문구 ───────────────────────────────────────────────
+  // 64자를 폰으로 옮기는 건 현실적이지 않다. 그래서 **외우는 문구**를 받아
+  // 그 해시를 열쇠로 쓴다. 같은 문구 → 같은 열쇠 → 같은 퀴즈 목록.
+  // ⚠️ 문구를 아는 사람은 그 퀴즈의 주인이 된다. 짧으면 남이 맞힐 수 있다.
+  //    그래서 길이를 강제하고, 화면에서 이름·학교를 섞으라고 안내한다.
+  var PHRASE_MIN = 8;
+  function tokenFromPhrase(phrase) {
+    phrase = String(phrase == null ? "" : phrase).trim().replace(/\s+/g, " ");
+    if (phrase.length < PHRASE_MIN) {
+      return Promise.reject(new Error("열쇠 문구는 " + PHRASE_MIN + "자 이상으로 지어 주세요."));
+    }
+    if (!(window.crypto && crypto.subtle)) {
+      // http 로 열면 crypto.subtle 이 없다(보안 컨텍스트가 아니라서).
+      return Promise.reject(new Error("이 주소에서는 열쇠 문구를 쓸 수 없어요. https 로 열어 주세요."));
+    }
+    var data = new TextEncoder().encode("wonedu-quiz/v1:" + phrase);
+    return crypto.subtle.digest("SHA-256", data).then(function (buf) {
+      var b = new Uint8Array(buf), s = "";
+      for (var i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
+      return s;                                   // 64자
+    });
+  }
+
   // 다른 기기에서 만든 열쇠를 이 기기에 심는다.
   // ⚠️ 퀴즈는 서버에 있고 이 열쇠가 '내 것'이라는 증명이다. 열쇠를 옮기면
   //    두 기기가 **같은 퀴즈 목록**을 본다(복사가 아니라 같은 것을 본다).
@@ -214,7 +237,8 @@
     $: $, esc: esc, rpc: rpc, show: show, msg: msg, uuid: uuid,
     getItem: getItem, setItem: setItem, delItem: delItem,
     guestKey: guestKey, hostToken: hostToken, touchToken: touchToken,
-    setHostToken: setHostToken,
+    setHostToken: setHostToken, tokenFromPhrase: tokenFromPhrase,
+    PHRASE_MIN: PHRASE_MIN,
     makeSock: makeSock, makePoll: makePoll,
   };
 })();

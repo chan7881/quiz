@@ -233,3 +233,9 @@ td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
              font-variant-numeric: tabular-nums; }
 .hr { height: 1px; background: var(--line); margin: 16px 0; }
 .spacer { height: 10px; }
+
+/* ── 참여 QR ──────────────────────────────────────────── */
+/* 교실 뒤에서도 찍히게 큼직하게. 흰 여백은 규격이 요구하는 것이라 지우지 않는다. */
+.qr { max-width: 260px; margin: 0 auto 14px; }
+.qr svg { display: block; width: 100%; height: auto; border-radius: 8px; }
+/* ⚠️ 다크모드에서도 QR 은 흰 바탕·검은 칸을 유지해야 한다. 반전시키면 못 읽는다. */

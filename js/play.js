@@ -413,9 +413,27 @@
     leave(); S.show("hub");
   });
 
-  // 새로고침 뒤 같은 탭이면 코드를 되찾아 넣어 준다(자동 참여는 하지 않는다).
-  try {
-    var saved = sessionStorage.getItem("qz-code");
-    if (saved) { $("hub-code").value = saved; }
-  } catch (e) { /* 무시 */ }
+  // ── 들어오는 길 두 가지 ─────────────────────────────────────
+  // 1) QR 로 왔다 — 주소에 ?c=코드 가 붙어 있다. 코드 확인까지 대신 해 준다.
+  //    ⚠️ 참여까지 자동으로 하지는 않는다. 별명·번호는 학생이 정해야 한다.
+  // 2) 새로고침했다 — 같은 탭이면 코드를 되찾아 넣어 준다.
+  (function () {
+    var fromQr = null;
+    try {
+      fromQr = new URLSearchParams(location.search).get("c");
+    } catch (e) { /* 아주 옛 브라우저 */ }
+
+    if (fromQr) {
+      fromQr = String(fromQr).trim().toUpperCase().slice(0, 6);
+      $("hub-code").value = fromQr;
+      // 주소창에서 코드를 지운다 — 새로고침 때 끝난 수업으로 다시 들어가려 하지 않게.
+      try { history.replaceState(null, "", location.pathname); } catch (e) {}
+      $("hub-next").click();               // 코드 확인 → 별명/번호 화면으로
+      return;
+    }
+    try {
+      var saved = sessionStorage.getItem("qz-code");
+      if (saved) { $("hub-code").value = saved; }
+    } catch (e) { /* 무시 */ }
+  })();
 })();
