@@ -328,30 +328,45 @@
   //    실제로는 같은 동작(문구 → 열쇠)인데, 화면이 그걸 말해 주지 않으면
   //    다른 기기에서 «불러오기 단추가 어디 있지?» 가 된다(사용자 지적, 2026-08-26).
   //    그래서 두 경우를 **둘 다 글로 적어 둔다.**
+  // ⚠️ 한 칸으로 «정하기»와 «불러오기»를 겸하게 했더니, 다른 기기에서는
+  //    «불러오기가 어디 있냐»가 되고 실제로 불러와졌는지도 알 수 없었다(사용자 지적).
+  //    두 일은 결과가 다르므로 **칸도 단추도 따로** 둔다.
+  //      · 정하기  — 이 기기의 열쇠를 그 문구로 바꾼다(내 퀴즈를 데려갈 수도 있다)
+  //      · 불러오기 — 그 문구에 퀴즈가 **있는지 먼저 확인하고**, 있을 때만 바꾼다
   function keyHtml(hasKey, byPhrase) {
-    return '<div class="card"><h2>열쇠 문구 — 다른 기기에서 이어 쓰기</h2>' +
-      '<p class="sub">아래에 문구를 넣고 단추를 누르면 됩니다. 두 경우 모두 같은 자리예요.</p>' +
-      '<ul class="sub" style="margin:-6px 0 12px 18px">' +
-      "<li><b>처음이라면</b> — 문구를 지어 넣으세요. 이 기기의 열쇠가 됩니다.</li>" +
-      "<li><b>다른 기기에서 쓰던 문구라면</b> — 그대로 넣으세요. " +
-      "<b>그 퀴즈들이 목록에 나타납니다.</b></li></ul>" +
-      '<p class="sub" style="margin-top:-6px">지금 이 기기: <b>' +
-      (byPhrase ? "문구로 정한 열쇠" : hasKey ? "자동으로 만들어진 열쇠 (문구 없음)" : "아직 없음") +
-      "</b></p>" +
-      '<label class="lbl" for="e-key-in">열쇠 문구</label>' +
-      '<input id="e-key-in" autocomplete="off" ' +
-      'placeholder="예) 우리학교 홍길동 과학 2026" />' +
+    var state = byPhrase ? "문구로 정한 열쇠"
+              : hasKey ? "자동으로 만들어진 열쇠 (문구 없음)"
+              : "아직 없음";
+
+    return (
+      // ── ① 불러오기 ──
+      '<div class="card"><h2>다른 기기에서 만든 퀴즈 불러오기</h2>' +
+      '<p class="sub">교무실에서 정한 <b>열쇠 문구</b>를 그대로 넣으세요. ' +
+      "그 문구로 저장된 퀴즈가 <b>있는지 먼저 확인한 뒤</b> 불러옵니다 — " +
+      "없으면 이 기기의 열쇠를 건드리지 않아요.</p>" +
+      '<label class="lbl" for="e-key-load">열쇠 문구</label>' +
+      '<input id="e-key-load" autocomplete="off" placeholder="교무실에서 쓰던 그 문구" />' +
+      '<button class="btn primary" type="button" data-act="e-key-load">불러오기</button>' +
+      '<p id="e-key-load-msg" class="msg"></p></div>' +
+
+      // ── ② 정하기 ──
+      '<div class="card"><h2>이 기기의 열쇠 문구 정하기</h2>' +
+      '<p class="sub">지금 이 기기: <b>' + state + "</b></p>" +
+      '<p class="sub" style="margin-top:-8px">처음 쓰신다면 여기서 문구를 지으세요. ' +
+      "다른 기기에서는 <b>위쪽 «불러오기»</b>를 쓰면 됩니다.</p>" +
+      '<label class="lbl" for="e-key-set">새 열쇠 문구</label>' +
+      '<input id="e-key-set" autocomplete="off" placeholder="예) 우리학교 홍길동 과학 2026" />' +
       (hasKey
         ? '<label class="lbl" style="display:flex;gap:8px;align-items:center">' +
           '<input id="e-key-move" type="checkbox" checked style="width:auto;min-height:0" /> ' +
           "지금 이 기기에 있는 퀴즈도 그 문구로 함께 옮기기</label>"
         : "") +
-      '<button class="btn primary" type="button" data-act="e-key-use">' +
-      "이 문구로 내 퀴즈 열기</button>" +
+      '<button class="btn" type="button" data-act="e-key-set">이 문구로 정하기</button>' +
       '<p class="sub" style="margin-top:12px">⚠ 문구를 아는 사람은 내 퀴즈를 열고 고칠 수 ' +
       "있어요. <b>이름·학교·연도를 섞어</b> 길게 지으세요(8자 이상). " +
       "문구를 잊으면 만든 퀴즈를 다시 열 수 없습니다.</p>" +
-      '<p id="e-key-msg" class="msg"></p></div>';
+      '<p id="e-key-msg" class="msg"></p></div>'
+    );
   }
 
   window.QZ_EDIT = {

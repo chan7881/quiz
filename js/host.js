@@ -74,7 +74,7 @@
     var box = $("edit-box");
     if (!box) return;
     // 열쇠 상태: 없음(false) · 자동(true) · 문구로 정함("phrase")
-    var state = tok(false) ? (S.getItem("qz_host_phrase") ? "phrase" : true) : false;
+    var state = tok(false) ? (S.isPhraseKey() ? "phrase" : true) : false;
     box.innerHTML = st.quiz ? E.editHtml(st.quiz)
                             : E.listHtml(st.list, resumeHtml(), state);
   }
@@ -96,47 +96,11 @@
     }
 
     // ── 기기 옮기기 ──
-    if (a === "e-key-use") {
-      var phrase = ($("e-key-in") || {}).value || "";
-      var move = !!(($("e-key-move") || {}).checked);
-      var old = tok(false);
-      t.disabled = true;
-      S.tokenFromPhrase(phrase).then(function (nt) {
-        if (nt === old) {
-          msg($("e-key-msg"), "이미 그 문구로 되어 있어요.", "ok");
-          t.disabled = false; return;
-        }
-        // 열쇠를 바꾸기 **전에** 옮긴다. 먼저 바꾸면 옛 열쇠를 잃어버린다.
-        var step = (move && old)
-          ? rpc("qz_reown", { p_old: old, p_new: nt })
-          : Promise.resolve({ moved: 0 });
-        return step.then(function (d) {
-          S.setHostToken(nt);
-          S.setItem("qz_host_phrase", "1");
-          st.quiz = null; st.list = null;
-          // 목록·이어하기를 먼저 갱신하고 **마지막에** 알린다 — 중간에 다시 그리면 알림이 지워진다.
-          return loadList().then(checkResume).then(function () {
-            var n = (st.list || []).length;
-            msg($("e-key-msg"),
-                "이 문구를 이 기기의 열쇠로 정했어요. " +
-                (d && d.moved ? "이 기기에 있던 퀴즈 " + d.moved + "개를 옮겼고, " : "") +
-                (n ? "지금 목록에 퀴즈 " + n + "개가 보여요."
-                   : "이 문구로 저장된 퀴즈는 아직 없어요."), "ok");
-          });
-        });
-      }).catch(function (e) {
-        // ⚠️ qz_reown 이 서버에 없으면 **열쇠를 바꾸지 않고 멈춘다.**
-        //    그냥 바꾸면 기존 퀴즈를 못 여는 상태가 되어 더 나쁘다.
-        var m = (e && e.message) || "";
-        if (m.indexOf("qz_reown") >= 0 || (e && (e.code === "PGRST202" || e.code === "PGRST203"))) {
-          m = "서버에 «기기 옮기기» 기능이 아직 없어요. sql/schema.sql 을 다시 한 번 " +
-              "실행해 주세요(여러 번 실행해도 안전합니다). 열쇠는 그대로 두었어요.";
-        }
-        msg($("e-key-msg"), m || "열쇠를 바꾸지 못했어요.");
-        t.disabled = false;
-      });
-      return;
-    }
+    // 두 단추가 하는 일이 다르다. 특히 «불러오기»는 **확인이 끝나기 전에는
+    // 이 기기의 열쇠를 절대 바꾸지 않는다** — 바꿔 놓고 비어 있으면 원래 쓰던
+    // 퀴즈까지 못 보게 되어 더 나쁘다.
+    if (a === "e-key-load") { keyLoad(t); return; }
+    if (a === "e-key-set") { keySet(t); return; }
 
     if (a === "e-new") {
       st.quiz = { id: null, title: "", items: [E.blank()], speed: false,
@@ -219,6 +183,91 @@
       return;
     }
   });
+
+  // 그 문구에 퀴즈가 있는지 **먼저 본다.** 있을 때만 이 기기의 열쇠를 바꾼다.
+  function keyLoad(btn) {
+    var box = $("e-key-load-msg");
+    var phrase = ($("e-key-load") || {}).value || "";
+    btn.disabled = true;
+    msg(box, "확인하는 중…", "ok");
+    S.phraseTokens(phrase).then(function (pt) {
+      // 정규화한 열쇠로 먼저, 없으면 옛 방식 열쇠로도 찾아본다.
+      // (한글 정규화를 넣기 전에 저장한 퀴즈를 되찾기 위한 길이다)
+      return rpc("qz_list", { p_token: pt.token }).then(function (a) {
+        if ((a || []).length) return { use: pt.token, list: a, moved: false };
+        return rpc("qz_list", { p_token: pt.legacy }).then(function (b) {
+          if (!(b || []).length) return { use: null, list: [], moved: false };
+          // 옛 열쇠에 있었다 → 새 열쇠로 옮겨 두고 앞으로는 새 것만 쓴다
+          return rpc("qz_reown", { p_old: pt.legacy, p_new: pt.token })
+            .then(function () { return { use: pt.token, list: b, moved: true }; })
+            .catch(function () { return { use: pt.legacy, list: b, moved: false }; });
+        });
+      });
+    }).then(function (r) {
+      btn.disabled = false;
+      if (!r.use) {
+        msg(box, "그 문구로 저장된 퀴즈가 없어요. 문구가 정확한지 다시 봐 주세요. " +
+                 "(이 기기의 열쇠는 그대로 두었어요)");
+        return;
+      }
+      S.setHostToken(r.use, true);
+      st.quiz = null; st.list = null;
+      return loadList().then(checkResume).then(function () {
+        msg($("e-key-load-msg"),
+            "퀴즈 " + (st.list || []).length + "개를 불러왔어요." +
+            (r.moved ? " (옛 방식으로 저장돼 있던 것을 함께 정리했어요)" : ""), "ok");
+      });
+    }).catch(function (e) {
+      btn.disabled = false;
+      msg(box, keyErr(e) || "불러오지 못했어요.");
+    });
+  }
+
+  // 이 기기의 열쇠를 그 문구로 바꾼다. 원하면 지금 있는 퀴즈도 데려간다.
+  function keySet(btn) {
+    var box = $("e-key-msg");
+    var phrase = ($("e-key-set") || {}).value || "";
+    var move = !!(($("e-key-move") || {}).checked);
+    var old = tok(false);
+    btn.disabled = true;
+    S.phraseTokens(phrase).then(function (pt) {
+      var nt = pt.token;
+      if (nt === old) {
+        msg(box, "이미 그 문구로 되어 있어요.", "ok");
+        btn.disabled = false;
+        return;
+      }
+      // 열쇠를 바꾸기 **전에** 옮긴다. 먼저 바꾸면 옛 열쇠를 잃어버린다.
+      var step = (move && old)
+        ? rpc("qz_reown", { p_old: old, p_new: nt })
+        : Promise.resolve({ moved: 0 });
+      return step.then(function (d) {
+        S.setHostToken(nt, true);
+        st.quiz = null; st.list = null;
+        return loadList().then(checkResume).then(function () {
+          var n = (st.list || []).length;
+          msg($("e-key-msg"),
+              "이 문구를 이 기기의 열쇠로 정했어요. " +
+              (d && d.moved ? "퀴즈 " + d.moved + "개를 옮겼고, " : "") +
+              (n ? "지금 목록에 " + n + "개가 보여요." : "아직 저장된 퀴즈는 없어요."), "ok");
+        });
+      });
+    }).catch(function (e) {
+      btn.disabled = false;
+      msg(box, keyErr(e) || "열쇠를 바꾸지 못했어요.");
+    });
+  }
+
+  // ⚠️ qz_reown 이 서버에 없으면 열쇠를 바꾸지 않고 멈춘다 — 그냥 바꾸면
+  //    기존 퀴즈를 못 여는 상태가 되어 더 나쁘다.
+  function keyErr(e) {
+    var m = (e && e.message) || "";
+    if (m.indexOf("qz_reown") >= 0 || (e && (e.code === "PGRST202" || e.code === "PGRST203"))) {
+      return "서버에 «기기 옮기기» 기능이 아직 없어요. sql/schema.sql 을 다시 한 번 " +
+             "실행해 주세요(여러 번 실행해도 안전합니다). 열쇠는 그대로 두었어요.";
+    }
+    return m;
+  }
 
   // select 를 바꾸면 화면이 달라진다(유형·참여 방식).
   $("edit-box").addEventListener("change", function (ev) {

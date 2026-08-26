@@ -54,7 +54,11 @@
     if (raw) {
       try {
         var s = JSON.parse(raw);
-        if (s && s.t && s.at && Date.now() - s.at < HOST_KEEP_MS) return s.t;
+        // ⚠️ 유휴 만료는 **자동으로 만들어진 열쇠에만** 적용한다.
+        //    (같은 PC 를 쓰는 다음 시간 학생이 방장이 되는 것을 막는 장치였다)
+        //    선생님이 문구로 직접 정한 열쇠는 만료시키면 안 된다 — 하루 지나면
+        //    목록이 통째로 사라진 것처럼 보인다.
+        if (s && s.t && (s.p || (s.at && Date.now() - s.at < HOST_KEEP_MS))) return s.t;
       } catch (e) { /* 깨진 값은 버린다 */ }
     }
     if (!make) return "";
@@ -64,7 +68,9 @@
   }
   function touchToken() {
     var t = hostToken(false);
-    if (t) setItem("qz_host", JSON.stringify({ t: t, at: Date.now() }));
+    // ⚠️ p(문구로 정함) 표시를 유지해야 한다. 안 그러면 진행 중에 touchToken 이
+    //    한 번만 돌아도 문구 열쇠가 «자동 열쇠»로 격하되어 12시간 뒤 사라진다.
+    if (t) setItem("qz_host", JSON.stringify({ t: t, at: Date.now(), p: isPhraseKey() ? 1 : 0 }));
   }
   // ── 열쇠 문구 ───────────────────────────────────────────────
   // 64자를 폰으로 옮기는 건 현실적이지 않다. 그래서 **외우는 문구**를 받아
@@ -72,18 +78,27 @@
   // ⚠️ 문구를 아는 사람은 그 퀴즈의 주인이 된다. 짧으면 남이 맞힐 수 있다.
   //    그래서 길이를 강제하고, 화면에서 이름·학교를 섞으라고 안내한다.
   var PHRASE_MIN = 8;
-  function tokenFromPhrase(phrase) {
-    phrase = String(phrase == null ? "" : phrase).trim().replace(/\s+/g, " ");
-    if (phrase.length < PHRASE_MIN) {
-      return Promise.reject(new Error("열쇠 문구는 " + PHRASE_MIN + "자 이상으로 지어 주세요."));
-    }
+
+  // ⚠️⚠️ 여기가 «기기가 다르면 안 열리던» 진짜 원인이었다 (2026-08-26).
+  //   같은 한글 문구라도 **기기마다 유니코드 표현이 다르다.** 윈도우 IME 는 보통 NFC(완성형),
+  //   맥·iOS 는 NFD(자모 분리)로 넣는다. 눈에는 똑같아 보이는데 바이트가 달라(34 vs 76)
+  //   해시가 완전히 달라진다 → 다른 기기에서 같은 문구를 넣어도 남의 열쇠가 된다.
+  //   **반드시 NFC 로 정규화한 뒤 해시한다.**
+  //   대소문자도 맞춘다 — 폰 자판이 첫 글자를 멋대로 대문자로 바꾸는 일이 흔하다.
+  function canonical(phrase) {
+    var s = String(phrase == null ? "" : phrase).trim().replace(/\s+/g, " ");
+    try { s = s.normalize("NFC"); } catch (e) { /* 아주 옛 브라우저 */ }
+    return s.toLowerCase();
+  }
+
+  function sha256Hex(text) {
     if (!(window.crypto && crypto.subtle)) {
       // http 로 열면 crypto.subtle 이 없다(보안 컨텍스트가 아니라서).
       return Promise.reject(new Error("이 주소에서는 열쇠 문구를 쓸 수 없어요. https 로 열어 주세요."));
     }
     // 앞에 붙이는 고정 문자열(솔트). 같은 문구를 다른 서비스에서 써도 열쇠가 겹치지 않게 한다.
     // ⚠️ 이 값을 바꾸면 **이미 정해 둔 문구의 열쇠가 전부 달라진다.** 함부로 건드리지 말 것.
-    var data = new TextEncoder().encode("class-quiz/v1:" + phrase);
+    var data = new TextEncoder().encode("class-quiz/v1:" + text);
     return crypto.subtle.digest("SHA-256", data).then(function (buf) {
       var b = new Uint8Array(buf), s = "";
       for (var i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");
@@ -91,15 +106,34 @@
     });
   }
 
+  // 열쇠 두 개를 준다.
+  //   token  — 지금 쓰는 것(정규화함)
+  //   legacy — 정규화 전에 만들어진 옛 열쇠. 그 시절에 저장한 퀴즈를 되찾는 데만 쓴다.
+  function phraseTokens(phrase) {
+    var raw = String(phrase == null ? "" : phrase).trim().replace(/\s+/g, " ");
+    if (raw.length < PHRASE_MIN) {
+      return Promise.reject(new Error("열쇠 문구는 " + PHRASE_MIN + "자 이상으로 지어 주세요."));
+    }
+    return Promise.all([sha256Hex(canonical(raw)), sha256Hex(raw)])
+      .then(function (a) { return { token: a[0], legacy: a[1] }; });
+  }
+
+  function tokenFromPhrase(phrase) {
+    return phraseTokens(phrase).then(function (t) { return t.token; });
+  }
+
   // 다른 기기에서 만든 열쇠를 이 기기에 심는다.
   // ⚠️ 퀴즈는 서버에 있고 이 열쇠가 '내 것'이라는 증명이다. 열쇠를 옮기면
   //    두 기기가 **같은 퀴즈 목록**을 본다(복사가 아니라 같은 것을 본다).
   //    서버가 32자 미만을 거절하므로 여기서도 같은 기준으로 막는다.
-  function setHostToken(t) {
+  function setHostToken(t, byPhrase) {
     t = String(t == null ? "" : t).trim();
     if (t.length < 32) return false;
-    setItem("qz_host", JSON.stringify({ t: t, at: Date.now() }));
+    setItem("qz_host", JSON.stringify({ t: t, at: Date.now(), p: byPhrase ? 1 : 0 }));
     return true;
+  }
+  function isPhraseKey() {
+    try { return !!(JSON.parse(getItem("qz_host") || "{}").p); } catch (e) { return false; }
   }
 
   // ── 서버 호출 ───────────────────────────────────────────────
@@ -240,6 +274,7 @@
     getItem: getItem, setItem: setItem, delItem: delItem,
     guestKey: guestKey, hostToken: hostToken, touchToken: touchToken,
     setHostToken: setHostToken, tokenFromPhrase: tokenFromPhrase,
+    phraseTokens: phraseTokens, isPhraseKey: isPhraseKey,
     PHRASE_MIN: PHRASE_MIN,
     makeSock: makeSock, makePoll: makePoll,
   };
