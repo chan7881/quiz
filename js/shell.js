@@ -81,7 +81,9 @@
       // http 로 열면 crypto.subtle 이 없다(보안 컨텍스트가 아니라서).
       return Promise.reject(new Error("이 주소에서는 열쇠 문구를 쓸 수 없어요. https 로 열어 주세요."));
     }
-    var data = new TextEncoder().encode("wonedu-quiz/v1:" + phrase);
+    // 앞에 붙이는 고정 문자열(솔트). 같은 문구를 다른 서비스에서 써도 열쇠가 겹치지 않게 한다.
+    // ⚠️ 이 값을 바꾸면 **이미 정해 둔 문구의 열쇠가 전부 달라진다.** 함부로 건드리지 말 것.
+    var data = new TextEncoder().encode("class-quiz/v1:" + phrase);
     return crypto.subtle.digest("SHA-256", data).then(function (buf) {
       var b = new Uint8Array(buf), s = "";
       for (var i = 0; i < b.length; i++) s += b[i].toString(16).padStart(2, "0");

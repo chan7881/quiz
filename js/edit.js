@@ -334,7 +334,7 @@
       "</b></p>" +
       '<label class="lbl" for="e-key-in">열쇠 문구</label>' +
       '<input id="e-key-in" autocomplete="off" ' +
-      'placeholder="예) 영동고 이웅찬 과학 2026" />' +
+      'placeholder="예) 우리학교 홍길동 과학 2026" />' +
       (hasKey
         ? '<label class="lbl" style="display:flex;gap:8px;align-items:center">' +
           '<input id="e-key-move" type="checkbox" checked style="width:auto;min-height:0" /> ' +
