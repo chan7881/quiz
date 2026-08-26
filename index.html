@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>수업 실시간 퀴즈</title>
+<link rel="stylesheet" href="app.css" />
+</head>
+<body>
+
+<header class="top">
+  <button id="brand" class="brand" type="button">수업 실시간 퀴즈</button>
+  <span id="top-code" class="top-code" hidden></span>
+</header>
+
+<main>
+  <!-- ── 첫 화면 ─────────────────────────────────────────── -->
+  <section id="v-hub" class="view">
+    <div class="card">
+      <h1>퀴즈에 참여하기</h1>
+      <p class="sub">선생님이 알려 준 여섯 글자 코드를 넣어 주세요.</p>
+
+      <label class="lbl" for="hub-code">참여 코드</label>
+      <input id="hub-code" class="code-input" maxlength="6" autocomplete="off"
+             autocapitalize="characters" spellcheck="false" placeholder="ABC123" />
+
+      <!-- 코드를 확인한 뒤 별명칸 또는 번호 고르개가 여기 그려진다 -->
+      <div id="hub-who"></div>
+
+      <button id="hub-next" class="btn primary" type="button">다음</button>
+      <p id="hub-msg" class="msg"></p>
+    </div>
+
+    <div class="card quiet">
+      <h2>선생님용</h2>
+      <p class="sub">퀴즈를 만들고 수업에서 진행합니다.</p>
+      <button id="hub-teacher" class="btn ghost" type="button">퀴즈 만들기 · 진행하기</button>
+    </div>
+  </section>
+
+  <!-- ── 학생 참여 중 ────────────────────────────────────── -->
+  <section id="v-play" class="view" hidden><div id="play-box"></div></section>
+
+  <!-- ── 교사: 목록 · 편집 ───────────────────────────────── -->
+  <section id="v-edit" class="view" hidden><div id="edit-box"></div></section>
+
+  <!-- ── 교사: 진행 ──────────────────────────────────────── -->
+  <section id="v-host" class="view" hidden><div id="host-box"></div></section>
+</main>
+
+<script src="config.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/edit.js"></script>
+<script src="js/host.js"></script>
+<script src="js/play.js"></script>
+</body>
+</html>
