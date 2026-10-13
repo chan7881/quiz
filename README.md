@@ -114,7 +114,7 @@ Supabase 가 키 체계를 바꾸는 중이라 **화면에 둘 중 하나가 보
 **내 PC에서 시험할 때**
 
 ```powershell
-cd "$env:USERPROFILE\Desktop\Claude\실시간퀴즈"
+cd "$env:USERPROFILE\Desktop\Claude-git\실시간퀴즈"
 python -m http.server 8777 --bind 127.0.0.1
 ```
 
@@ -198,6 +198,12 @@ GitHub Actions 가 가벼운 조회 하나를 보내고, 응답이 없으면 **�
 - 이미 잠겼다면: Supabase 대시보드에서 **Restore**. 잠긴 뒤 **90일 안**이면 복구됩니다.
 
 > 근본 해결은 Pro($25/월)입니다 — 유료 프로젝트는 일시정지되지 않습니다.
+
+> ⚠️ **지금 상태(2026-10-09): 프로젝트가 잠겨 있고 깨우기 예약은 꺼 두었다.**
+> 프로젝트 주소(`gzujnpbwcodppfmwmiwf.supabase.co`)가 DNS에서 사라졌다(마지막 깨우기 성공 09-02).
+> 다시 쓰려면 ① 대시보드에서 **Restore**(90일 기한 — 대략 12월 초까지) ② `keepalive.yml`의 `schedule` 주석을 푼다.
+> **메일 알람만 믿지 말 것** — 상태는 로그인 없이 이렇게 본다:
+> `Invoke-RestMethod 'https://api.github.com/repos/chan7881/quiz/actions/runs?per_page=5'`
 
 ---
 
